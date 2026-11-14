@@ -651,6 +651,15 @@
       <div id="invResult" class="adm-result" style="margin-top:6px"></div>
     </div>
     <div class="adm-section">
+      <div class="adm-h">Merge duplicate names in <span class="admStoreName2"></span></div>
+      <p class="adm-note">The same person ends up as two rows when one import writes <b>Last, First</b> and another <b>First Last</b>, or a name is misspelled. Merging moves every entry onto the row you keep and deletes the other (the kept row wins where both have the same day). Likely pairs are listed; any two rows can be merged by hand.</p>
+      <div id="admDupList" class="adm-result" style="margin:0 0 8px"></div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <select id="mergeFrom" class="mm-select" style="margin:0;width:auto;max-width:260px"></select><span style="font-size:0.75rem;color:var(--text-muted)">into</span><select id="mergeInto" class="mm-select" style="margin:0;width:auto;max-width:260px"></select>
+        <button class="btn" onclick="admMergeSelected()">Merge</button>
+      </div>
+    </div>
+    <div class="adm-section">
       <div class="adm-h">Settings for <span id="admStoreName"></span></div>
       <div class="adm-grid">
         <div><label>Company (on forms)</label><input id="setCompany"></div>
@@ -3355,6 +3364,8 @@ function closeAdmin() {
 function renderAdmin() {
   document.getElementById('admStoreName').textContent = storeName(currentStoreId);
   document.getElementById('admImportStore').textContent = storeName(currentStoreId);
+  document.querySelectorAll('.admStoreName2').forEach(e => { e.textContent = storeName(currentStoreId); });
+  admRenderMerge();
   document.getElementById('admHead').innerHTML = '<span>User</span>' + STORES.map(s => `<span>${escHtml(s.name)}</span>`).join('') + '<span>Admin</span>';
   const ip = document.getElementById('invPerms');
   if (ip && !ip.children.length) ip.innerHTML = STORES.map(s => `<label style="display:flex;flex-direction:column;gap:2px;font-size:0.62rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.04em">${escHtml(s.name)}<select id="inv_${s.id}" class="mm-select" style="margin:0;width:auto"><option value="">&mdash;</option><option value="view">view</option><option value="edit" selected>edit</option></select></label>`).join('') +
@@ -3450,6 +3461,51 @@ function saveStoreSettings() {
     managers: g('setManagers'), supervisors: g('setSupervisors').toLowerCase(), alerts: g('setAlerts') !== '0', pts2: n('setPts2', 3), ptsFinal: n('setPtsFinal', 3), ptsTerm: n('setPtsTerm', 3) };
   settingsRef.set(s).then(() => { document.getElementById('admSettingsResult').textContent = 'Saved.'; renderTable(); })
     .catch(err => toast('Settings save failed: ' + err.message, 'error'));
+}
+
+// ── Merge two rows that are the same person ──
+function admRenderMerge() {
+  const el = document.getElementById('admDupList'); if (!el) return;
+  const label = k => (attendanceData[k].displayName || k) + ' (' + Object.keys(attendanceData[k].dates || {}).length + ')';
+  const keys = Object.keys(attendanceData).sort((a, b) => (attendanceData[a].displayName || a).localeCompare(attendanceData[b].displayName || b));
+  const opts = keys.map(k => `<option value="${escHtml(k)}">${escHtml(label(k))}</option>`).join('');
+  document.getElementById('mergeFrom').innerHTML = opts; document.getElementById('mergeInto').innerHTML = opts;
+  const groups = {};
+  keys.forEach(k => { const nm = splitName(attendanceData[k].displayName || k); const g = nm.fn && nm.ln ? empKey(nm.fn, nm.ln) : ''; if (g) (groups[g] = groups[g] || []).push(k); });
+  const rows = [];
+  Object.values(groups).filter(ks => ks.length > 1).forEach(ks => {
+    const sorted = ks.slice().sort((a, b) => Object.keys(attendanceData[b].dates || {}).length - Object.keys(attendanceData[a].dates || {}).length);
+    sorted.slice(1).forEach(src => rows.push(`<div style="display:flex;gap:8px;align-items:center;margin-bottom:4px;flex-wrap:wrap"><span>${escHtml(label(src))} &rarr; ${escHtml(label(sorted[0]))}</span><button class="btn" style="padding:3px 8px;font-size:0.7rem" data-src="${escHtml(src)}" data-into="${escHtml(sorted[0])}" onclick="admMerge(this.dataset.src,this.dataset.into)">Merge</button></div>`));
+  });
+  el.innerHTML = rows.length ? rows.join('') : 'No likely duplicates in ' + storeName(currentStoreId) + '.';
+}
+function admMergeSelected() { admMerge(document.getElementById('mergeFrom').value, document.getElementById('mergeInto').value); }
+function admMerge(src, dst) {
+  if (!requireEdit()) return;
+  if (!src || !dst || src === dst || !attendanceData[src] || !attendanceData[dst]) { toast('Pick two different rows', 'error'); return; }
+  const a = attendanceData[src], b = attendanceData[dst], an = a.displayName || src, bn = b.displayName || dst;
+  if (!confirm('Merge "' + an + '" into "' + bn + '"?\n\nEvery entry moves onto ' + bn + ' (that row wins where both have the same day) and the "' + an + '" row is deleted. Undo puts it back.')) return;
+  pushUndo();
+  ['dates', 'notes', 'userNotes', 'usl', 'priorWriteups'].forEach(f => {
+    if (!a[f]) return; b[f] = b[f] || {};
+    Object.entries(a[f]).forEach(([d, v]) => {
+      if (b[f][d] == null || b[f][d] === '') b[f][d] = v;
+      else if (f === 'notes' && v && b[f][d] !== v) b[f][d] = b[f][d] + ' | ' + v;
+    });
+  });
+  if (a.hidden && b.hidden == null) b.hidden = true;
+  if (a.management) b.management = true;
+  delete attendanceData[src];
+  // Schedule, time off and the alert marker that were filed under the old row follow it
+  const moves = {};
+  ['shifts', 'punches'].forEach(n => { const d = schedData[n] || {}; if (d[src]) { moves['schedule/' + n + '/' + dst] = Object.assign({}, d[dst] || {}, d[src]); moves['schedule/' + n + '/' + src] = null; } });
+  if ((schedData.names || {})[src]) { if (!(schedData.names || {})[dst]) moves['schedule/names/' + dst] = schedData.names[src]; moves['schedule/names/' + src] = null; }
+  if ((timeOffData.days || {})[src]) { moves['timeoff/days/' + dst] = Object.assign({}, (timeOffData.days || {})[dst] || {}, timeOffData.days[src]); moves['timeoff/days/' + src] = null; }
+  if ((timeOffData.names || {})[src]) { if (!(timeOffData.names || {})[dst]) moves['timeoff/names/' + dst] = timeOffData.names[src]; moves['timeoff/names/' + src] = null; }
+  if (caAlertsSent[src] !== undefined) moves['caAlertsSent/' + src] = null;
+  if (Object.keys(moves).length) DB.ref('stores/' + currentStoreId).update(moves).catch(err => toast('Could not move the schedule: ' + err.message, 'error'));
+  saveData('cleanup'); rebuildDates(); renderTable(); admRenderMerge();
+  toast('Merged into ' + bn, 'success');
 }
 
 // ── Import a JSON export of an old tracker's database into the open store ──
