@@ -3600,10 +3600,23 @@ function admPlanImport() {
     det.nodes = { attendance: chosen.attendance || {} };
   }
   const nodes = det.nodes;
-  const att = {};
-  Object.entries(nodes.attendance || {}).forEach(([k, p]) => { if (p && typeof p === 'object') att[k] = admNormalizeRecord(p, det.kind); });
+  const att = {}, hist = {};
+  Object.entries(nodes.attendance || {}).forEach(([k, p]) => {
+    if (!p || typeof p !== 'object') return;
+    att[k] = admNormalizeRecord(p, det.kind);
+    // Union Square kept hand edits on the record (edits/{date} = [{who, ts, from, to, noteTo}]); they become change history here
+    Object.entries(p.edits || {}).forEach(([d, list]) => {
+      (Array.isArray(list) ? list : Object.values(list || {})).forEach(e => {
+        if (!e || !e.ts) return;
+        const id = 'm' + e.ts + Math.random().toString(36).slice(2, 6);
+        ((hist[histSafeKey(k)] = hist[histSafeKey(k)] || {})[histSafeKey(d)] = hist[histSafeKey(k)][histSafeKey(d)] || {})[id] = { who: e.who || 'unknown', ts: e.ts, field: 'value', from: e.from == null ? '' : String(e.from), to: e.to == null ? '' : String(e.to), via: 'edit' };
+        if (e.noteChanged) hist[histSafeKey(k)][histSafeKey(d)][id + 'n'] = { who: e.who || 'unknown', ts: e.ts, field: 'note', from: '', to: e.noteTo == null ? '' : String(e.noteTo), via: 'edit' };
+      });
+    });
+  });
   const plan = { kind: det.kind, label: det.label, nodes: {} };
   STORE_NODES.forEach(n => { if (nodes[n] && typeof nodes[n] === 'object' && Object.keys(nodes[n]).length) plan.nodes[n] = nodes[n]; });
+  if (!plan.nodes.cellHistory && Object.keys(hist).length) plan.nodes.cellHistory = hist;
   plan.nodes.attendance = att;
   const people = Object.keys(att).length, days = new Set(), cells = Object.values(att).reduce((t, p) => t + Object.keys(p.dates || {}).length, 0);
   Object.values(att).forEach(p => Object.keys(p.dates || {}).forEach(d => days.add(d)));
