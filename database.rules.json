@@ -1,0 +1,29 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+
+    "users": {
+      ".read": "auth != null && (root.child('users').child(auth.uid).child('isAdmin').val() === true || auth.token.email === 'retailoperations@thetravelagency.co' || auth.token.email === 'mark.muniz@thetravelagency.co')",
+      "$uid": {
+        ".read": "auth != null && ($uid === auth.uid || root.child('users').child(auth.uid).child('isAdmin').val() === true || auth.token.email === 'retailoperations@thetravelagency.co' || auth.token.email === 'mark.muniz@thetravelagency.co')",
+        ".write": "auth != null && (root.child('users').child(auth.uid).child('isAdmin').val() === true || auth.token.email === 'retailoperations@thetravelagency.co' || auth.token.email === 'mark.muniz@thetravelagency.co' || ($uid === auth.uid && !data.exists() && newData.child('isAdmin').val() !== true && !newData.child('stores').exists()))"
+      }
+    },
+
+    "stores": {
+      "$store": {
+        ".read": "auth != null && (root.child('users').child(auth.uid).child('isAdmin').val() === true || auth.token.email === 'retailoperations@thetravelagency.co' || auth.token.email === 'mark.muniz@thetravelagency.co' || root.child('users').child(auth.uid).child('stores').child($store).exists())",
+        ".write": "auth != null && (root.child('users').child(auth.uid).child('isAdmin').val() === true || auth.token.email === 'retailoperations@thetravelagency.co' || auth.token.email === 'mark.muniz@thetravelagency.co' || root.child('users').child(auth.uid).child('stores').child($store).val() === 'edit')"
+      }
+    },
+
+    "attendance":   { ".read": "auth != null", ".write": "auth != null" },
+    "importLog":    { ".read": "auth != null", ".write": "auth != null" },
+    "manualDates":  { ".read": "auth != null", ".write": "auth != null" },
+    "employees":    { ".read": "auth != null", ".write": "auth != null" },
+    "caAlertsSent": { ".read": "auth != null", ".write": "auth != null" },
+    "cellHistory":  { ".read": "auth != null", ".write": "auth != null" },
+    "schedule":     { ".read": "auth != null", ".write": "auth != null" }
+  }
+}
