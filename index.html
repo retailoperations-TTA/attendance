@@ -3663,7 +3663,11 @@ async function admConfirmImport() {
     }
     const who = (currentUserEmail || '').split('@')[0] || 'admin';
     const now = new Date();
-    up[base + 'importLog/' + importLogRef.push().key] = { who, count: Object.keys(plan.nodes.attendance).length, dateRange: 'from ' + plan.label, label: (now.getMonth() + 1) + '/' + now.getDate() + '/' + String(now.getFullYear()).slice(2) + ' ' + now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }), ts: Date.now(), kind: 'migration' };
+    const logEntry = { who, count: Object.keys(plan.nodes.attendance).length, dateRange: 'from ' + plan.label, label: (now.getMonth() + 1) + '/' + now.getDate() + '/' + String(now.getFullYear()).slice(2) + ' ' + now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }), ts: Date.now(), kind: 'migration' };
+    const logId = importLogRef.push().key;
+    // one write can't hold both importLog and importLog/<id>, so fold the entry into the imported log when there is one
+    if (up[base + 'importLog']) up[base + 'importLog'] = Object.assign({}, up[base + 'importLog'], { [logId]: logEntry });
+    else up[base + 'importLog/' + logId] = logEntry;
     await DB.ref().update(up);
     admShowResult('Done: ' + Object.keys(plan.nodes.attendance).length + ' people, ' + added + ' entries added to ' + storeName(into) + '.', 'ok');
     loadImportLog();
