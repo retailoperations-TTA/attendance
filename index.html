@@ -399,30 +399,8 @@
 </div>
 
 <div id="appView">
-  <div class="key-section">
-    <div class="key-title">KEY</div>
-    <div class="key-row">
-      <div class="key-item"><div class="key-swatch" style="background:#6c8cff"></div> 1st</div>
-      <div class="key-item"><div class="key-swatch" style="background:#facc15"></div> 2nd</div>
-      <div class="key-item"><div class="key-swatch" style="background:#f59e0b"></div> Final</div>
-      <div class="key-item"><div class="key-swatch" style="background:#ef4444"></div> Terminated</div>
-      <div class="key-sep"></div>
-      <div class="key-item"><span style="color:#facc15;font-size:0.85rem">&#9733;</span> Has note</div>
-      <div class="key-sep"></div>
-      <div class="key-item"><span class="ca-folder" style="margin-left:0;cursor:default"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></span> Corrective action needed (click to open)</div>
-      <div class="key-item"><span class="sick-badge" style="margin-right:0">18.5</span> NYC-PS&amp;STO (Protected Safe &amp; Sick Time Off) hours remaining, 32/yr, before name</div>
-      <div class="key-sep sched-key"></div>
-      <div class="key-item sched-key"><div class="key-swatch" style="background:rgba(74,222,128,0.22);border:1px solid rgba(74,222,128,0.55)"></div> Scheduled (shift time shown)</div>
-      <div class="key-sep to-key" style="display:none"></div>
-      <div class="key-item to-key" style="display:none"><div class="key-swatch" style="background:rgba(250,204,21,0.22);border:1px solid rgba(250,204,21,0.55)"></div> Approved time off</div>
-      <div class="key-item"><div class="key-swatch" style="background:rgba(244,114,182,0.2);border:1px solid rgba(244,114,182,0.5)"></div> Sick time &#129298; (approved, or Excused Sick by hand)</div>
-    </div>
-  </div>
-  <div class="view-banner" id="viewBanner"></div>
-  <div class="ca-banner" id="caBanner"></div>
   <div class="toolbar">
     <div class="store-tabs" id="storeTabs"></div>
-    <input class="search-box" id="searchBox" type="text" placeholder="Search budtenders..." oninput="renderTable()">
     <div class="toolbar-right">
       <button class="view-summary" id="viewSummary" onclick="resetViewFilters()" title="Back to Normal View, All Months"></button>
       <div class="menu-wrap" id="menuWrap">
@@ -454,6 +432,32 @@
         </div>
       </div>
     </div>
+  </div>
+
+  <div class="key-section">
+    <div class="key-title">KEY</div>
+    <div class="key-row">
+      <div class="key-item"><div class="key-swatch" style="background:#6c8cff"></div> 1st</div>
+      <div class="key-item"><div class="key-swatch" style="background:#facc15"></div> 2nd</div>
+      <div class="key-item"><div class="key-swatch" style="background:#f59e0b"></div> Final</div>
+      <div class="key-item"><div class="key-swatch" style="background:#ef4444"></div> Terminated</div>
+      <div class="key-sep"></div>
+      <div class="key-item"><span style="color:#facc15;font-size:0.85rem">&#9733;</span> Has note</div>
+      <div class="key-sep"></div>
+      <div class="key-item"><span class="ca-folder" style="margin-left:0;cursor:default"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></span> Corrective action needed (click to open)</div>
+      <div class="key-item"><span class="sick-badge" style="margin-right:0">18.5</span> NYC-PS&amp;STO (Protected Safe &amp; Sick Time Off) hours remaining, 32/yr, before name</div>
+      <div class="key-sep sched-key"></div>
+      <div class="key-item sched-key"><div class="key-swatch" style="background:rgba(74,222,128,0.22);border:1px solid rgba(74,222,128,0.55)"></div> Scheduled (shift time shown)</div>
+      <div class="key-sep to-key" style="display:none"></div>
+      <div class="key-item to-key" style="display:none"><div class="key-swatch" style="background:rgba(250,204,21,0.22);border:1px solid rgba(250,204,21,0.55)"></div> Approved time off</div>
+      <div class="key-item"><div class="key-swatch" style="background:rgba(244,114,182,0.2);border:1px solid rgba(244,114,182,0.5)"></div> Sick time &#129298; (approved, or Excused Sick by hand)</div>
+    </div>
+  </div>
+  <div class="view-banner" id="viewBanner"></div>
+  <div class="ca-banner" id="caBanner"></div>
+  <div class="toolbar">
+    <input class="search-box" id="searchBox" type="text" placeholder="Search budtenders..." oninput="renderTable()">
+    
   </div>
   <div class="table-wrap" id="tableWrap">
     <div class="empty-state" id="emptyState">
