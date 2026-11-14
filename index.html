@@ -1453,8 +1453,8 @@ function parseSickTimeReport(rows, cols) {
     const totalHrs = paidHrs + unpaidHrs;
     if (totalHrs <= 0) return;
     const mins = Math.round(totalHrs * 60);
-    const sk = name.replace(/[^a-zA-Z0-9_, -]/g, '_');
-    if (!parsed[sk]) parsed[sk] = { displayName: name, dates: {} };
+    const sk = findPersonKey(name) || name.replace(/[^a-zA-Z0-9_, -]/g, '_');
+    if (!parsed[sk]) parsed[sk] = { displayName: (attendanceData[sk] || {}).displayName || name, dates: {} };
     const existingMins = parseSickMinutes(parsed[sk].dates[ds]) || 0;
     parsed[sk].dates[ds] = formatSickLabel(existingMins + mins);
   });
@@ -1577,8 +1577,9 @@ function parseIncidentLog(rows, nameCol, dateCol, typeCol) {
     if (typeof rawDate === 'number') { const d = XLSX.SSF.parse_date_code(rawDate); ds = `${d.y}-${String(d.m).padStart(2,'0')}-${String(d.d).padStart(2,'0')}`; }
     else { ds = toLocalYMD(rawDate); }
     if (ds) pendingImportDates.push(ds);
-    const sk = name.replace(/[^a-zA-Z0-9_, -]/g, '_');
-    if (!parsed[sk]) parsed[sk] = { displayName: name, dates: {}, notes: {} };
+    // Someone already on the tracker keeps their row even if the report spells the name the other way round
+    const sk = findPersonKey(name) || name.replace(/[^a-zA-Z0-9_, -]/g, '_');
+    if (!parsed[sk]) parsed[sk] = { displayName: (attendanceData[sk] || {}).displayName || name, dates: {}, notes: {} };
     const val = mapType(type, row);
     if (val) {
       parsed[sk].dates[ds] = val;
@@ -1672,8 +1673,8 @@ function parseGrid(rows, fnCol, lnCol, cols) {
     const fn=(row[fnCol]||'').toString().trim(), ln=(row[lnCol]||'').toString().trim();
     if (!fn&&!ln) return;
     const name = ln ? `${ln}, ${fn}` : fn;
-    const sk = name.replace(/[^a-zA-Z0-9_, -]/g, '_');
-    if (!parsed[sk]) parsed[sk] = { displayName: name, dates: {} };
+    const sk = findPersonKey(name) || name.replace(/[^a-zA-Z0-9_, -]/g, '_');
+    if (!parsed[sk]) parsed[sk] = { displayName: (attendanceData[sk] || {}).displayName || name, dates: {} };
     dc.forEach(d => { const v=(row[d]||'').toString().trim(); if (v) parsed[sk].dates[d]=v; });
   });
   showPreview(parsed);
