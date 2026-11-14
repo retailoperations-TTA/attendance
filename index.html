@@ -415,7 +415,7 @@
       <div class="key-item sched-key"><div class="key-swatch" style="background:rgba(74,222,128,0.22);border:1px solid rgba(74,222,128,0.55)"></div> Scheduled (shift time shown)</div>
       <div class="key-sep to-key" style="display:none"></div>
       <div class="key-item to-key" style="display:none"><div class="key-swatch" style="background:rgba(250,204,21,0.22);border:1px solid rgba(250,204,21,0.55)"></div> Approved time off</div>
-      <div class="key-item to-key" style="display:none"><div class="key-swatch" style="background:rgba(244,114,182,0.2);border:1px solid rgba(244,114,182,0.5)"></div> Approved sick time &#129298;</div>
+      <div class="key-item"><div class="key-swatch" style="background:rgba(244,114,182,0.2);border:1px solid rgba(244,114,182,0.5)"></div> Sick time &#129298; (approved, or Excused Sick by hand)</div>
     </div>
   </div>
   <div class="view-banner" id="viewBanner"></div>
@@ -483,13 +483,14 @@
     <div id="editTimeOff" class="sched-box" style="display:none"></div>
     <div style="margin-bottom:14px">
       <label style="display:block;font-size:0.72rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px">Value</label>
-      <input type="text" id="editInput" placeholder="e.g. 0.5, 1, Excused, or blank to clear" style="width:100%;padding:10px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit;font-size:0.85rem;outline:none" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
+      <input type="text" id="editInput" placeholder="e.g. 0.5, 1, Excused, Excused Sick, or blank to clear" style="width:100%;padding:10px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit;font-size:0.85rem;outline:none" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
     </div>
     <div class="modal-btns edit-only" style="margin-bottom:8px">
       <button class="btn" onclick="fillEdit('0.5')">0.5</button>
       <button class="btn" onclick="fillEdit('1')">1</button>
       <button class="btn" onclick="fillEdit('NC/NS')">NC/NS</button>
       <button class="btn" onclick="fillEdit('Excused')">Excused</button>
+<button class="btn" style="color:#f472b6;border-color:rgba(244,114,182,0.45)" onclick="fillEdit('Excused Sick')">Excused Sick &#129298;</button>
       <button class="btn" onclick="fillEdit('')">Clear</button>
     </div>
     <div class="modal-btns edit-only">
@@ -1527,7 +1528,7 @@ function parseTimeOff(rows, cols, sickParsed) {
       const sk = name.replace(/[^a-zA-Z0-9_, -]/g, '_');
       if (sickParsed[sk] && sickParsed[sk].dates && sickParsed[sk].dates[d]) continue;
       const p = attendanceData[key], val = (p.dates || {})[d];
-      if (/^excused$/i.test(String(val || '').trim())) { alreadyExcused++; continue; }
+      if (/^excused$/i.test(String(val || '').trim()) || isExcusedSick(val)) { alreadyExcused++; continue; }
       if (getPoints(val) <= 0) continue;
       if (parsed[key] && parsed[key].dates[d]) continue;
       if (!parsed[key]) parsed[key] = { displayName: p.displayName || key, dates: {}, notes: {}, was: {} };
@@ -1757,7 +1758,7 @@ function confirmImport() {
     if (!p.notes) p.notes = {};
     Object.entries(v.dates || {}).forEach(([d, val]) => {
       const cur = String(p.dates[d] == null ? '' : p.dates[d]).trim();
-      if (cur && getPoints(val) > 0 && (isWriteupVal(cur) || /^excused$/i.test(cur) || parseSickMinutes(cur) !== null)) {
+      if (cur && getPoints(val) > 0 && (isWriteupVal(cur) || /^excused$/i.test(cur) || isExcusedSick(cur) || parseSickMinutes(cur) !== null)) {
         kept++;
         const note = (v.notes || {})[d];
         if (note) p.notes[d] = (p.notes[d] ? p.notes[d] + ' | ' : '') + 'excused occurrence: ' + note;
@@ -1976,6 +1977,9 @@ function ptsColor(pts) {
   if (pts>0) return 'pts-green';
   return 'pts-zero';
 }
+// Excused sick time keyed in by hand: same faint pink + 🤒 as an approved sick day,
+// no points, and the blue corner marker since it comes in as an edit.
+function isExcusedSick(val) { return /^excused\s*sick$/i.test(String(val == null ? '' : val).trim()); }
 function cellHtml(val) {
   if (!val) return '';
   const v=val.toString().trim();
@@ -1984,6 +1988,7 @@ function cellHtml(val) {
   if (v==='1'||v==='1.0'||/^late 1\.0$/i.test(v)) return '<span class="val-one">1</span>';
   if (/^nc\s*\/?\s*ns$/i.test(v)) return '<span class="val-one">NC/NS</span>';
   if (/^excused$/i.test(v)) return '<span class="val-excused">Excused</span>';
+if (isExcusedSick(v)) return '<span class="val-excused">Excused</span>';
   if (v==='1st') return '<span class="val-1st">1st</span>';
   if (v==='2nd') return '<span class="val-2nd">2nd</span>';
   if (/^final$/i.test(v)) return '<span class="val-final">Final</span>';
@@ -2078,8 +2083,8 @@ function renderTable() {
         const titleAttr=tip?` title="${escHtml(tip).replace(/\n/g,'&#10;')}"`:'';
         const histCls=isEditedAfterImport(key,d)?' has-hist':'';
         const vs=String(v).trim();
-        const schCls=tod?' to-'+tod.k:!sc?'':' sched-on'+(getPoints(v)>=1?' sched-one':getPoints(v)>0?' sched-half':/^excused$/i.test(vs)?' sched-exc':parseSickMinutes(v)!==null?' sched-sick':'');
-        return `<td class="date-cell${histCls}${schCls}" onclick="openEdit('${key.replace(/'/g,"\\'")}','${d}')"${titleAttr}>${tod&&tod.k==='sick'?'<span class="to-emoji">&#129298;</span>':''}${cellHtml(v)}${sc?sc.html:''}${starHtml}</td>`;
+        const schCls=isExcusedSick(v)?' to-sick':tod?' to-'+tod.k:!sc?'':' sched-on'+(getPoints(v)>=1?' sched-one':getPoints(v)>0?' sched-half':/^excused$/i.test(vs)?' sched-exc':parseSickMinutes(v)!==null?' sched-sick':'');
+        return `<td class="date-cell${histCls}${schCls}" onclick="openEdit('${key.replace(/'/g,"\\'")}','${d}')"${titleAttr}>${(isExcusedSick(v)||(tod&&tod.k==='sick'))?'<span class="to-emoji">&#129298;</span>':''}${cellHtml(v)}${sc?sc.html:''}${starHtml}</td>`;
       }).join('');
     }
     const sickRemaining=getSickHoursRemaining(dates,person);
