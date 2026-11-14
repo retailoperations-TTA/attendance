@@ -7,7 +7,23 @@
       ".read": "auth != null && (root.child('users').child(auth.uid).child('isAdmin').val() === true || auth.token.email === 'retailoperations@thetravelagency.co' || auth.token.email === 'mark.muniz@thetravelagency.co')",
       "$uid": {
         ".read": "auth != null && ($uid === auth.uid || root.child('users').child(auth.uid).child('isAdmin').val() === true || auth.token.email === 'retailoperations@thetravelagency.co' || auth.token.email === 'mark.muniz@thetravelagency.co')",
-        ".write": "auth != null && (root.child('users').child(auth.uid).child('isAdmin').val() === true || auth.token.email === 'retailoperations@thetravelagency.co' || auth.token.email === 'mark.muniz@thetravelagency.co' || ($uid === auth.uid && !data.exists() && newData.child('isAdmin').val() !== true && !newData.child('stores').exists()))"
+        ".write": "auth != null && (root.child('users').child(auth.uid).child('isAdmin').val() === true || auth.token.email === 'retailoperations@thetravelagency.co' || auth.token.email === 'mark.muniz@thetravelagency.co' || $uid === auth.uid)",
+        "isAdmin": {
+          ".validate": "root.child('users').child(auth.uid).child('isAdmin').val() === true || auth.token.email === 'retailoperations@thetravelagency.co' || auth.token.email === 'mark.muniz@thetravelagency.co' || newData.val() === false || newData.val() === root.child('invites').child(auth.token.email.toLowerCase().replace('.', ',')).child('isAdmin').val()"
+        },
+        "stores": {
+          "$store": {
+            ".validate": "root.child('users').child(auth.uid).child('isAdmin').val() === true || auth.token.email === 'retailoperations@thetravelagency.co' || auth.token.email === 'mark.muniz@thetravelagency.co' || newData.val() === root.child('invites').child(auth.token.email.toLowerCase().replace('.', ',')).child('stores').child($store).val()"
+          }
+        }
+      }
+    },
+
+    "invites": {
+      ".read": "auth != null && (root.child('users').child(auth.uid).child('isAdmin').val() === true || auth.token.email === 'retailoperations@thetravelagency.co' || auth.token.email === 'mark.muniz@thetravelagency.co')",
+      ".write": "auth != null && (root.child('users').child(auth.uid).child('isAdmin').val() === true || auth.token.email === 'retailoperations@thetravelagency.co' || auth.token.email === 'mark.muniz@thetravelagency.co')",
+      "$key": {
+        ".read": "auth != null && $key === auth.token.email.toLowerCase().replace('.', ',')"
       }
     },
 

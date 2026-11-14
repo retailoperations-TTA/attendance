@@ -14,7 +14,9 @@ Who sees what is set on the **Admin** page (hamburger menu, admins only):
 - **edit**: can import, edit cells, record corrective actions, and so on.
 - **admin**: every store, plus the Admin page. `retailoperations@thetravelagency.co` and `mark.muniz@thetravelagency.co` are always admins (also in the database rules).
 
-Someone who signs in for the first time sees "no store has been opened up to you yet" until an admin gives them a store. Sign-in is the same email and password as the old SoHo tracker; Google sign-in works too once it is turned on in Firebase Authentication.
+People sign in with Google (their work Google account) or with the email and password from the old SoHo tracker. Admins add people ahead of time on the Admin page under **Add someone**: type the email address, pick view or edit per store, and the access is waiting for them the first time they sign in. Several at once works as one per line, for example `name@thetravelagency.co, soho:edit, usq:view`. Someone who signs in without having been added sees "no store has been opened up to you yet" until an admin adds them; the screen updates on its own when that happens.
+
+Google sign-in needs the Google provider turned on in Firebase Authentication for `attendance-tracker-c4c8e`, with `retailoperations-tta.github.io` under Authorized domains.
 
 ## Per-store settings (Admin page)
 

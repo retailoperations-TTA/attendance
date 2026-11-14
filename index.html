@@ -371,6 +371,8 @@
       <h1 class="login-title">Attendance Tracker</h1>
       <p class="login-sub">SoHo, Union Square, Downtown Brooklyn and 5th Ave</p>
       <div id="loginForm">
+      <button class="login-btn" type="button" onclick="handleGoogle()" style="display:flex;align-items:center;justify-content:center;gap:10px"><svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.5 30.3 0 24 0 14.6 0 6.5 5.4 2.6 13.3l7.9 6.1C12.4 13.6 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.7 6c4.5-4.2 6.9-10.3 6.9-17.7z"/><path fill="#FBBC05" d="M10.5 28.6A14.5 14.5 0 0 1 9.5 24c0-1.6.3-3.2.8-4.6l-7.9-6.1A24 24 0 0 0 0 24c0 3.9.9 7.5 2.6 10.7l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.7-6c-2.1 1.4-4.9 2.3-8.2 2.3-6.3 0-11.6-4.1-13.5-9.9l-7.9 6.1C6.5 42.6 14.6 48 24 48z"/></svg>Sign in with Google</button>
+      <div style="display:flex;align-items:center;gap:10px;margin:18px 0 14px;color:var(--text-muted);font-size:0.72rem;text-transform:uppercase;letter-spacing:0.06em"><span style="flex:1;height:1px;background:var(--border)"></span>or email and password<span style="flex:1;height:1px;background:var(--border)"></span></div>
       <div class="input-group">
         <label>Email</label>
         <input type="email" id="emailInput" placeholder="you@example.com" autocomplete="email">
@@ -384,13 +386,12 @@
           </svg>
         </button>
       </div>
-      <button class="login-btn" id="loginBtn" onclick="handleLogin()">Sign In</button>
-      <button class="login-btn google" type="button" onclick="handleGoogle()">Sign in with Google</button>
+      <button class="login-btn google" id="loginBtn" onclick="handleLogin()" style="margin-top:0">Sign In</button>
       <div class="error-msg" id="errorMsg">Invalid email or password. Please try again.</div>
       </div>
       <div id="noAccess" class="no-access" style="display:none">
         <p>You're signed in as <b id="noAccessWho"></b>, but no store has been opened up to you yet.</p>
-        <p style="margin-top:8px">Ask an admin to give you access on the Admin page, then reload.</p>
+        <p style="margin-top:8px">Ask an admin to add you on the Admin page. Access shows up here on its own once they do.</p>
         <button class="login-btn" style="margin-top:20px" onclick="handleLock()">Sign out</button>
       </div>
     </div>
@@ -412,9 +413,9 @@
       <div class="key-item"><span class="sick-badge" style="margin-right:0">18.5</span> NYC-PS&amp;STO (Protected Safe &amp; Sick Time Off) hours remaining, 32/yr, before name</div>
       <div class="key-sep sched-key"></div>
       <div class="key-item sched-key"><div class="key-swatch" style="background:rgba(74,222,128,0.22);border:1px solid rgba(74,222,128,0.55)"></div> Scheduled (shift time shown)</div>
-      <div class="key-sep to-key"></div>
-      <div class="key-item to-key"><div class="key-swatch" style="background:rgba(250,204,21,0.22);border:1px solid rgba(250,204,21,0.55)"></div> Approved time off</div>
-      <div class="key-item to-key"><div class="key-swatch" style="background:rgba(244,114,182,0.2);border:1px solid rgba(244,114,182,0.5)"></div> Approved sick time &#129298;</div>
+      <div class="key-sep to-key" style="display:none"></div>
+      <div class="key-item to-key" style="display:none"><div class="key-swatch" style="background:rgba(250,204,21,0.22);border:1px solid rgba(250,204,21,0.55)"></div> Approved time off</div>
+      <div class="key-item to-key" style="display:none"><div class="key-swatch" style="background:rgba(244,114,182,0.2);border:1px solid rgba(244,114,182,0.5)"></div> Approved sick time &#129298;</div>
     </div>
   </div>
   <div class="view-banner" id="viewBanner"></div>
@@ -640,6 +641,14 @@
       <p class="adm-note">Everyone who has signed in at least once is listed. Pick <b>view</b> or <b>edit</b> per store; blank means no access. Admins see and edit every store and this page. <b>retailoperations@</b> and <b>mark.muniz@</b> are always admins.</p>
       <div class="adm-head" id="admHead"></div>
       <div class="adm-users" id="admUsers"></div>
+      <div class="adm-h" style="margin-top:16px">Add someone</div>
+      <p class="adm-note">Type their Google (or email sign-in) address and pick a store or two. They get in the first time they sign in. One per line also works: <b>name@thetravelagency.co, soho:edit, usq:view</b>.</p>
+      <div style="display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap">
+        <textarea id="invEmails" class="note-input" style="flex:1 1 320px;min-height:44px" rows="2" placeholder="name@thetravelagency.co"></textarea>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center" id="invPerms"></div>
+        <button class="btn primary" onclick="admAddInvites()">Add</button>
+      </div>
+      <div id="invResult" class="adm-result" style="margin-top:6px"></div>
     </div>
     <div class="adm-section">
       <div class="adm-h">Settings for <span id="admStoreName"></span></div>
@@ -707,6 +716,10 @@ const STORES = [
 // Always admins, even before they have a users/ record. Keep in sync with the database rules.
 const ADMIN_EMAILS = ['retailoperations@thetravelagency.co', 'mark.muniz@thetravelagency.co'];
 const usersRef = DB.ref('users');
+// Access granted before someone's first sign-in: invites/{email with . as ,} = { email, stores, isAdmin, by, at }.
+// On first sign-in the invite becomes the person's users/ record.
+const invitesRef = DB.ref('invites');
+const emailKey = e => String(e || '').trim().toLowerCase().replace(/[.#$\[\]\/]/g, ',');
 let currentUserEmail = '';
 let currentUser = null;      // { uid, email, displayName, isAdmin, stores: { id: 'view'|'edit' } }
 let currentStoreId = null;
@@ -827,11 +840,20 @@ auth.onAuthStateChanged(async user => {
   const so = document.getElementById('signOutBtn');
   if (so) so.title = 'Sign out ' + currentUserEmail;
   const meRef = usersRef.child(user.uid);
-  // First sign-in creates the record with no store access; an admin grants stores from the Admin page.
+  // First sign-in creates the record. An invite for this email (added by an admin
+  // beforehand) sets the store access; otherwise it starts with none.
   try {
     const snap = await meRef.once('value');
-    if (!snap.exists()) await meRef.set({ email: currentUserEmail, displayName: user.displayName || '', isAdmin: false, stores: {}, created: Date.now() });
-    else if (snap.val() && snap.val().email !== currentUserEmail) await meRef.update({ email: currentUserEmail });
+    let invite = null;
+    try { const inv = await invitesRef.child(emailKey(currentUserEmail)).once('value'); if (inv.exists()) invite = inv.val(); } catch (e) {}
+    if (!snap.exists()) {
+      await meRef.set({ email: currentUserEmail, displayName: user.displayName || '', isAdmin: !!(invite && invite.isAdmin), stores: (invite && invite.stores) || {}, created: Date.now() });
+    } else {
+      const v = snap.val() || {}, upd = {};
+      if (v.email !== currentUserEmail) upd.email = currentUserEmail;
+      if (invite && !v.isAdmin && !Object.keys(v.stores || {}).length) { upd.stores = invite.stores || {}; if (invite.isAdmin) upd.isAdmin = true; }
+      if (Object.keys(upd).length) await meRef.update(upd);
+    }
   } catch (e) { console.warn('User record:', e.message); }
   meRef.on('value', snap => {
     const v = snap.val() || {};
@@ -3319,7 +3341,7 @@ document.getElementById('editInput').addEventListener('keydown',e=>{ if (e.key==
 /* =====================================================================
    ADMIN: users and store access, store settings, data from the old trackers
    ===================================================================== */
-let admUsers = {}, admUsersOn = false;
+let admUsers = {}, admInvites = {}, admUsersOn = false;
 function openAdmin() {
   if (!isAdminUser(currentUser)) { toast('Admins only', 'error'); return; }
   renderAdmin();
@@ -3327,31 +3349,42 @@ function openAdmin() {
 }
 function closeAdmin() {
   document.getElementById('adminModal').classList.remove('active');
-  if (admUsersOn) { usersRef.off(); admUsersOn = false; }
+  if (admUsersOn) { usersRef.off(); invitesRef.off(); admUsersOn = false; }
 }
 function renderAdmin() {
   document.getElementById('admStoreName').textContent = storeName(currentStoreId);
   document.getElementById('admImportStore').textContent = storeName(currentStoreId);
   document.getElementById('admHead').innerHTML = '<span>User</span>' + STORES.map(s => `<span>${escHtml(s.name)}</span>`).join('') + '<span>Admin</span>';
+  const ip = document.getElementById('invPerms');
+  if (ip && !ip.children.length) ip.innerHTML = STORES.map(s => `<label style="display:flex;flex-direction:column;gap:2px;font-size:0.62rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.04em">${escHtml(s.name)}<select id="inv_${s.id}" class="mm-select" style="margin:0;width:auto"><option value="">&mdash;</option><option value="view">view</option><option value="edit" selected>edit</option></select></label>`).join('') +
+    `<label style="display:flex;align-items:center;gap:5px;font-size:0.72rem;color:var(--text-dim);margin-top:14px"><input type="checkbox" id="inv_admin"> admin</label>`;
   fillSettingsForm();
   if (!admUsersOn) {
     admUsersOn = true;
     usersRef.on('value', snap => { admUsers = snap.val() || {}; renderAdmUsers(); },
       err => { document.getElementById('admUsers').innerHTML = '<div class="adm-note">Could not load the user list (' + escHtml(err.message) + '). Check the database rules.</div>'; });
+    invitesRef.on('value', snap => { admInvites = snap.val() || {}; renderAdmUsers(); }, err => console.warn('Invites load failed:', err.message));
   } else renderAdmUsers();
 }
 function renderAdmUsers() {
   const el = document.getElementById('admUsers');
-  const rows = Object.entries(admUsers).sort((a, b) => String(a[1].email || '').localeCompare(String(b[1].email || '')));
-  if (!rows.length) { el.innerHTML = '<div class="adm-note">Nobody has signed in yet.</div>'; return; }
-  el.innerHTML = rows.map(([uid, u]) => {
+  const signedIn = new Set(Object.values(admUsers).map(u => String(u.email || '').toLowerCase()));
+  const rows = Object.entries(admUsers).map(([uid, u]) => ({ id: uid, u, kind: 'user' }))
+    .concat(Object.entries(admInvites).filter(([k, i]) => !signedIn.has(String(i.email || '').toLowerCase())).map(([k, i]) => ({ id: k, u: i, kind: 'invite' })))
+    .sort((a, b) => String(a.u.email || '').localeCompare(String(b.u.email || '')));
+  if (!rows.length) { el.innerHTML = '<div class="adm-note">Nobody yet. Add people below.</div>'; return; }
+  el.innerHTML = rows.map(({ id, u, kind }) => {
     const fixed = ADMIN_EMAILS.includes(String(u.email || '').toLowerCase()), admin = fixed || !!u.isAdmin;
     const perms = u.stores || {};
-    const sel = s => `<select onchange="admSetPerm('${uid}','${s.id}',this.value)"${admin ? ' disabled title="Admins have edit access everywhere"' : ''}>` +
+    const fn = kind === 'invite' ? 'admSetInvitePerm' : 'admSetPerm';
+    const sel = s => `<select onchange="${fn}('${id}','${s.id}',this.value)"${admin ? ' disabled title="Admins have edit access everywhere"' : ''}>` +
       `<option value=""${!perms[s.id] ? ' selected' : ''}>&mdash;</option><option value="view"${perms[s.id] === 'view' ? ' selected' : ''}>view</option><option value="edit"${perms[s.id] === 'edit' ? ' selected' : ''}>edit</option></select>`;
-    const self = currentUser && uid === currentUser.uid;
-    return `<div class="adm-user"><div><span class="u-mail">${escHtml(u.email || uid)}${self ? ' (you)' : ''}</span>${u.displayName ? `<span class="u-name">${escHtml(u.displayName)}</span>` : ''}</div>${STORES.map(sel).join('')}` +
-      `<label title="${fixed ? 'Always an admin' : 'Full access to every store and this page'}"><input type="checkbox"${admin ? ' checked' : ''}${fixed || self ? ' disabled' : ''} onchange="admSetAdmin('${uid}',this.checked)"> ${fixed ? 'always' : 'admin'}</label></div>`;
+    const self = kind === 'user' && currentUser && id === currentUser.uid;
+    const sub = kind === 'invite' ? '<span class="u-name">Added, hasn’t signed in yet</span>' : (u.displayName ? `<span class="u-name">${escHtml(u.displayName)}</span>` : '');
+    const adminBox = kind === 'invite'
+      ? `<label title="Admin on first sign-in"><input type="checkbox"${admin ? ' checked' : ''}${fixed ? ' disabled' : ''} onchange="admSetInviteAdmin('${id}',this.checked)"> ${fixed ? 'always' : 'admin'}</label><button class="btn" style="padding:3px 7px;font-size:0.7rem" title="Remove" onclick="admRemoveInvite('${id}')">&#x2715;</button>`
+      : `<label title="${fixed ? 'Always an admin' : 'Full access to every store and this page'}"><input type="checkbox"${admin ? ' checked' : ''}${fixed || self ? ' disabled' : ''} onchange="admSetAdmin('${id}',this.checked)"> ${fixed ? 'always' : 'admin'}</label>`;
+    return `<div class="adm-user"><div><span class="u-mail">${escHtml(u.email || id)}${self ? ' (you)' : ''}</span>${sub}</div>${STORES.map(sel).join('')}<div style="display:flex;gap:6px;align-items:center">${adminBox}</div></div>`;
   }).join('');
 }
 function admSetPerm(uid, storeId, perm) {
@@ -3360,6 +3393,45 @@ function admSetPerm(uid, storeId, perm) {
 }
 function admSetAdmin(uid, on) {
   usersRef.child(uid).child('isAdmin').set(!!on).then(() => toast('Saved', 'success')).catch(err => toast('Could not save: ' + err.message, 'error'));
+}
+function admSetInvitePerm(key, storeId, perm) {
+  const ref = invitesRef.child(key).child('stores').child(storeId);
+  (perm ? ref.set(perm) : ref.remove()).then(() => toast('Saved', 'success')).catch(err => toast('Could not save: ' + err.message, 'error'));
+}
+function admSetInviteAdmin(key, on) { invitesRef.child(key).child('isAdmin').set(!!on).then(() => toast('Saved', 'success')).catch(err => toast('Could not save: ' + err.message, 'error')); }
+function admRemoveInvite(key) {
+  const inv = admInvites[key]; if (!inv) return;
+  if (!confirm('Remove ' + (inv.email || key) + '? They will have no access when they sign in.')) return;
+  invitesRef.child(key).remove().catch(err => toast('Could not remove: ' + err.message, 'error'));
+}
+// "name@x.co" or "name@x.co, soho:edit, usq:view [, admin]" per line; the dropdowns are the default
+function admAddInvites() {
+  if (!isAdminUser(currentUser)) return;
+  const out = document.getElementById('invResult');
+  const lines = document.getElementById('invEmails').value.split(/\n/).map(s => s.trim()).filter(Boolean);
+  if (!lines.length) { out.textContent = 'Type at least one email address.'; return; }
+  const defStores = {}; STORES.forEach(s => { const v = document.getElementById('inv_' + s.id).value; if (v) defStores[s.id] = v; });
+  const defAdmin = document.getElementById('inv_admin').checked;
+  const up = {}, bad = [], who = (currentUserEmail || '').split('@')[0];
+  lines.forEach(line => {
+    const parts = line.split(/[,;]+/).map(s => s.trim()).filter(Boolean);
+    const email = (parts.shift() || '').toLowerCase();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { bad.push(line); return; }
+    let stores = Object.assign({}, defStores), isAdmin = defAdmin, explicit = false;
+    parts.forEach(p => {
+      if (/^admin$/i.test(p)) { isAdmin = true; return; }
+      const m = /^([a-z0-9]+)\s*[:=]\s*(view|edit)$/i.exec(p);
+      if (m && storeById(m[1].toLowerCase())) { if (!explicit) { stores = {}; explicit = true; } stores[m[1].toLowerCase()] = m[2].toLowerCase(); }
+      else bad.push(line + ' (' + p + '?)');
+    });
+    up[emailKey(email)] = { email, stores, isAdmin, by: who, at: Date.now() };
+  });
+  const n = Object.keys(up).length;
+  if (!n) { out.textContent = 'Nothing added. Check: ' + bad.join(' | '); return; }
+  invitesRef.update(up).then(() => {
+    out.textContent = 'Added ' + n + (n === 1 ? ' person' : ' people') + '.' + (bad.length ? ' Skipped: ' + bad.join(' | ') : '');
+    document.getElementById('invEmails').value = '';
+  }).catch(err => { out.textContent = 'Could not save: ' + err.message; });
 }
 function fillSettingsForm() {
   const c = cfg();
