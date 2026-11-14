@@ -672,6 +672,7 @@
       <div class="adm-h">Bring in data from an old tracker</div>
       <p class="adm-note">Upload a JSON export of an old tracker's database (Firebase console &rarr; Realtime Database &rarr; the &#8942; menu &rarr; <b>Export JSON</b>). The SoHo, Union Square, 5th Ave and Jeff's multi-store layouts are all recognized. It goes into the store that is open right now: <b id="admImportStore"></b>.</p>
       <input type="file" id="admJsonFile" accept=".json,application/json" style="font-size:0.78rem;color:var(--text-dim)" onchange="admReadJson(this.files[0])">
+      <textarea id="admJsonText" class="note-input" rows="2" style="margin-top:8px;min-height:44px;font-family:'JetBrains Mono',monospace;font-size:0.72rem" placeholder="…or paste the JSON here" oninput="admReadJsonText(this.value)"></textarea>
       <div id="admImportPick" style="display:none;margin-top:8px"></div>
       <div id="admImportPreview" class="adm-result"></div>
       <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px"><button class="btn primary" id="admImportBtn" onclick="admConfirmImport()" style="display:none">Import into this store</button></div>
@@ -3465,6 +3466,18 @@ function admReadJson(file) {
   r.onload = e => { try { admJson = JSON.parse(e.target.result); admPlanImport(); } catch (err) { admShowResult('That file is not valid JSON (' + err.message + ').', 'bad'); } };
   r.readAsText(file);
 }
+let admTextTimer = 0;
+function admReadJsonText(text) {
+  clearTimeout(admTextTimer);
+  admTextTimer = setTimeout(() => {
+    const t = String(text || '').trim();
+    if (!t) return;
+    admJson = null; admPlan = null;
+    document.getElementById('admImportBtn').style.display = 'none';
+    const pick = document.getElementById('admImportPick'); pick.style.display = 'none'; pick.innerHTML = '';
+    try { admJson = JSON.parse(t); admPlanImport(); } catch (err) { admShowResult('That is not valid JSON (' + err.message + ').', 'bad'); }
+  }, 300);
+}
 // Which old tracker did the export come from, and where is each node in it?
 function admDetect(j) {
   if (!j || typeof j !== 'object') return null;
@@ -3509,7 +3522,8 @@ function admNormalizeRecord(p, kind) {
   if (Object.keys(usl).length) out.usl = usl; else delete out.usl; // minutes beside a point stay in usl (counted toward the 32 h)
   if (!Object.keys(out.userNotes).length) delete out.userNotes;
   if (!Object.keys(out.notes).length) delete out.notes;
-  delete out.edits; delete out.aliases; delete out.added;
+  if (p.archived && p.hidden == null) out.hidden = true; // Jeff's "archived" people are hidden here
+  delete out.edits; delete out.aliases; delete out.added; delete out.archived; delete out.meta; delete out.uslBase;
   return out;
 }
 function admPlanImport() {
