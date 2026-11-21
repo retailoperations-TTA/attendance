@@ -130,6 +130,16 @@
   .view-summary.active{display:inline-flex}
   .view-summary:hover{border-color:rgba(108,140,255,0.55)}
   .view-summary .vs-x{opacity:0.7;font-size:0.8rem}
+  /* "Updated today 6:08 AM" pill: when this store's data was last imported */
+  .fresh-chip{display:none;align-items:center;gap:7px;font-size:0.72rem;font-family:inherit;color:var(--text-dim);background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:5px 10px;cursor:pointer;white-space:nowrap;transition:border-color 0.15s}
+  .fresh-chip.show{display:inline-flex}
+  .fresh-chip:hover{border-color:var(--border-light);color:var(--text)}
+  .fresh-chip .fc-dot{width:7px;height:7px;border-radius:50%;background:var(--text-muted);flex:none;box-shadow:0 0 0 2px rgba(255,255,255,0.04)}
+  .fresh-chip.ok .fc-dot{background:var(--green);box-shadow:0 0 0 2px rgba(74,222,128,0.18)}
+  .fresh-chip.warn .fc-dot{background:#fbbf24;box-shadow:0 0 0 2px rgba(251,191,36,0.18)}
+  .fresh-chip.bad .fc-dot{background:#f87171;box-shadow:0 0 0 2px rgba(248,113,113,0.18)}
+  .fresh-chip.bad{color:#fca5a5;border-color:rgba(248,113,113,0.35)}
+  @media (max-width:900px){.fresh-chip .fc-long{display:none}}
   .dropdown{position:relative;display:inline-block}
   .dropdown-btn{padding:6px 12px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text);font-family:'DM Sans',sans-serif;font-size:0.75rem;font-weight:500;cursor:pointer;transition:all 0.15s;white-space:nowrap;display:inline-flex;align-items:center;gap:5px}
   .dropdown-btn:hover{background:var(--surface3);border-color:var(--border-light)}
@@ -411,6 +421,7 @@
     <div class="store-tabs" id="storeTabs"></div>
     <div class="toolbar-right">
       <div class="who-chip" id="whoChip" title=""><div class="who-avatar" id="whoAvatar"></div><span class="who-name" id="whoName"></span></div>
+      <button class="fresh-chip" id="freshChip" type="button" onclick="openHistory()" title="When this store's data was last imported. Click for the full import history."><span class="fc-dot"></span><span class="fc-text"></span></button>
       <button class="view-summary" id="viewSummary" onclick="resetViewFilters()" title="Back to Normal View, All Months"></button>
       <div class="menu-wrap" id="menuWrap">
         <button class="hamburger" id="menuBtn" onclick="toggleMainMenu(event)" title="Menu" aria-label="Menu" aria-haspopup="true" aria-expanded="false">
@@ -1032,7 +1043,30 @@ function logImport(count, dateRange, kind) {
 
 function openHistory() { renderImportLog(); document.getElementById('historyModal').classList.add('active'); }
 function closeHistory() { document.getElementById('historyModal').classList.remove('active'); }
+// The pill in the top bar: "Updated today 6:08 AM" (green), "Last import yesterday …" (amber),
+// older (red), or "No imports yet". Reads the newest import-log entry for this store.
+function renderFreshness() {
+  const chip = document.getElementById('freshChip'); if (!chip) return;
+  const text = chip.querySelector('.fc-text');
+  if (!currentStoreId) { chip.classList.remove('show'); return; }
+  chip.classList.add('show'); chip.classList.remove('ok', 'warn', 'bad');
+  const newest = importLogEntries.length ? importLogEntries.reduce((a, b) => (b.ts > a.ts ? b : a)) : null;
+  if (!newest) { text.textContent = 'No imports yet'; return; }
+  const d = new Date(newest.ts), now = new Date();
+  const dayKey = x => x.getFullYear() * 10000 + (x.getMonth() + 1) * 100 + x.getDate();
+  const t = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+  const who = newest.who ? ` <span class="fc-long" style="opacity:0.7">· ${escHtml(newest.who)}</span>` : '';
+  const daysAgo = Math.round((new Date(now.getFullYear(), now.getMonth(), now.getDate()) - new Date(d.getFullYear(), d.getMonth(), d.getDate())) / 86400000);
+  if (dayKey(d) === dayKey(now)) { chip.classList.add('ok'); text.innerHTML = `Updated today ${t}${who}`; }
+  else if (daysAgo === 1) { chip.classList.add('warn'); text.innerHTML = `Last import yesterday ${t}${who}`; }
+  else { chip.classList.add('bad'); text.innerHTML = `Last import ${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} ${t} <span class="fc-long">(${daysAgo} days ago)</span>${who}`; }
+}
+// Keep the pill honest when a tab is left open: re-read the import log when the tab
+// comes back into view and every 10 minutes (single reads, no live listener).
+document.addEventListener('visibilitychange', () => { if (!document.hidden && currentStoreId && importLogRef) loadImportLog(); });
+setInterval(() => { if (!document.hidden && currentStoreId && importLogRef) loadImportLog(); else renderFreshness(); }, 10 * 60 * 1000);
 function renderImportLog() {
+  renderFreshness();
   const container = document.getElementById('importLogEntries');
   const cnt = document.getElementById('historyCount');
   if (cnt) cnt.textContent = importLogEntries.length || '';
@@ -1168,20 +1202,20 @@ function loadData() {
     lastSyncedData = JSON.parse(JSON.stringify(attendanceData));
     caDataLoaded = true;
     try { localStorage.setItem(lsKey('attendance'), JSON.stringify(attendanceData)); } catch(e) {}
-    rebuildDates(); renderTable();
-    if (initialLoad) {
-      initialLoad = false;
-      setTimeout(() => { const wrap = document.getElementById('tableWrap'); wrap.scrollLeft = wrap.scrollWidth; }, 50);
-    }
+    rebuildDates();
+    const firstLoad = initialLoad;
+    if (firstLoad) { initialLoad = false; applyDefaultMonth(); }
+    renderTable();
+    if (firstLoad) setTimeout(() => { const wrap = document.getElementById('tableWrap'); if (wrap) wrap.scrollLeft = wrap.scrollWidth; }, 50);
   }, err => {
     console.warn('Firebase error, using localStorage:', err.message);
     toast('Could not load ' + storeName(currentStoreId) + ' (' + err.message + ')', 'error');
     try { attendanceData = JSON.parse(localStorage.getItem(lsKey('attendance')) || '{}'); } catch(e) { attendanceData = {}; }
-    rebuildDates(); renderTable();
-    if (initialLoad) {
-      initialLoad = false;
-      setTimeout(() => { const wrap = document.getElementById('tableWrap'); wrap.scrollLeft = wrap.scrollWidth; }, 50);
-    }
+    rebuildDates();
+    const firstLoad = initialLoad;
+    if (firstLoad) { initialLoad = false; applyDefaultMonth(); }
+    renderTable();
+    if (firstLoad) setTimeout(() => { const wrap = document.getElementById('tableWrap'); if (wrap) wrap.scrollLeft = wrap.scrollWidth; }, 50);
   });
 }
 // Build a Firebase multi-path update holding only what changed between two
@@ -1344,6 +1378,16 @@ function setMonthFilter(mk) {
   if (sel && sel.value !== mk) sel.value = mk;
   updateViewSummary();
   renderTable();
+}
+// Each store opens on the current month instead of the whole year. "All Months" and
+// every earlier month stay one click away in the ☰ menu; the chip by the menu shows
+// which month is on screen. Falls back to the full grid if this month has no days yet.
+function applyDefaultMonth() {
+  const mk = todayYMD().substring(0, 7);
+  monthFilter = allDates.some(d => d.substring(0, 7) === mk) ? mk : 'all';
+  const sel = document.getElementById('monthFilterSelect');
+  if (sel) sel.value = monthFilter;
+  updateViewSummary();
 }
 document.addEventListener('click', e => {
   if (!e.target.closest('.header-dropdown') && !e.target.closest('#ptsColMenu')) {
