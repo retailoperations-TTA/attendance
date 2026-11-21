@@ -1322,7 +1322,7 @@ function updateViewSummary() {
   if (!el) return;
   const parts = [];
   if (viewMode !== 'normal') parts.push(viewMode === 'week' ? 'Week View' : 'Month View');
-  if (monthFilter !== 'all') parts.push(monthLabel(monthFilter));
+  if (monthFilter !== 'all' && monthFilter !== 'recent') parts.push(monthLabel(monthFilter));
   if (showHidden) parts.push('Showing hidden');
   el.innerHTML = parts.length ? escHtml(parts.join(' · ')) + ' <span class="vs-x">&#10005;</span>' : '';
   el.classList.toggle('active', parts.length > 0);
@@ -1333,6 +1333,8 @@ function resetViewFilters() {
   setViewMode('normal');
 }
 function monthLabel(mk) {
+  if (mk === 'recent') return 'Last ' + RECENT_DAYS + ' days';
+  if (mk === 'all') return 'All Months';
   const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
   const [y,m] = mk.split('-');
   return monthNames[parseInt(m)-1] + ' ' + y;
@@ -1367,10 +1369,10 @@ function buildMonthFilterMenu() {
   const months = Array.from(monthSet).sort().reverse();
   const sel = document.getElementById('monthFilterSelect');
   if (!sel) return;
-  let html = `<option value="all">All Months</option>`;
+  let html = `<option value="recent">${monthLabel('recent')}</option><option value="all">All Months</option>`;
   months.forEach(mk => { html += `<option value="${mk}">${monthLabel(mk)}</option>`; });
   sel.innerHTML = html;
-  sel.value = months.includes(monthFilter) ? monthFilter : 'all';
+  sel.value = (monthFilter === 'recent' || months.includes(monthFilter)) ? monthFilter : 'all';
 }
 function setMonthFilter(mk) {
   monthFilter = mk;
@@ -1379,12 +1381,14 @@ function setMonthFilter(mk) {
   updateViewSummary();
   renderTable();
 }
-// Each store opens on the current month instead of the whole year. "All Months" and
-// every earlier month stay one click away in the ☰ menu; the chip by the menu shows
-// which month is on screen. Falls back to the full grid if this month has no days yet.
+// Each store opens on the last 30 days (the "recent" filter) instead of the whole year,
+// so the 1st of a month is never an empty grid. "All Months" and every specific month
+// stay one click away in the ☰ menu. Falls back to the full grid if nothing is recent.
+const RECENT_DAYS = 30;
+function recentCutoff() { return ymdAdd(todayYMD(), -(RECENT_DAYS - 1)); }
 function applyDefaultMonth() {
-  const mk = todayYMD().substring(0, 7);
-  monthFilter = allDates.some(d => d.substring(0, 7) === mk) ? mk : 'all';
+  const cutoff = recentCutoff();
+  monthFilter = allDates.some(d => d >= cutoff) ? 'recent' : 'all';
   const sel = document.getElementById('monthFilterSelect');
   if (sel) sel.value = monthFilter;
   updateViewSummary();
@@ -2132,10 +2136,12 @@ function renderTable() {
   document.getElementById('mainTable').style.display='';
   const periodInfo=buildPeriods();
   const ptsLabel=ptsMode==='90days'?'Last 90 Days':ptsMode==='6months'?'Last 6 Months':'Annual Pts';
-  const filteredDates=monthFilter==='all'?allDates:allDates.filter(d=>d.substring(0,7)===monthFilter);
+  const cutoff=recentCutoff();
+  const filteredDates=monthFilter==='all'?allDates:monthFilter==='recent'?allDates.filter(d=>d>=cutoff):allDates.filter(d=>d.substring(0,7)===monthFilter);
   let filteredPeriods=null;
   if (periodInfo) {
     if (monthFilter==='all') { filteredPeriods=periodInfo.periods; }
+    else if (monthFilter==='recent') { filteredPeriods=periodInfo.periods.filter(p=>viewMode==='month'?p>=cutoff.substring(0,7):ymdAdd(p,6)>=cutoff); }
     else if (viewMode==='month') { filteredPeriods=periodInfo.periods.filter(p=>p===monthFilter); }
     else {
       filteredPeriods=periodInfo.periods.filter(p=>{
