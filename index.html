@@ -965,7 +965,7 @@ function resetStoreState() {
   undoStack = []; updateUndoBtn(); initialLoad = true;
   caSendFailed.clear(); caSendInFlight.clear();
   pendingImport = null; pendingEmployees = null; pendingSchedule = null; pendingTimeOff = null; editingPerson = editingDate = null; caPerson = null; pfPerson = null;
-  monthFilter = 'all';
+  monthFilter = 'all'; pinRight = true;
   ['editModal', 'importModal', 'addDateModal', 'profileModal', 'caModal', 'historyModal'].forEach(id => { const el = document.getElementById(id); if (el) el.classList.remove('active'); });
   document.getElementById('searchBox').value = '';
   renderImportLog();
@@ -998,6 +998,9 @@ let pendingImportDates = [];
 let viewMode = 'normal';
 let ptsMode = 'annual';
 let monthFilter = 'all';
+// Keep the grid pinned to the newest day (right edge) until the user scrolls away from it.
+// Set back to true whenever a store or date filter changes.
+let pinRight = true;
 let initialLoad = true;
 let undoStack = [];
 const MAX_UNDO = 20;
@@ -1376,6 +1379,7 @@ function buildMonthFilterMenu() {
 }
 function setMonthFilter(mk) {
   monthFilter = mk;
+  pinRight = true;
   const sel = document.getElementById('monthFilterSelect');
   if (sel && sel.value !== mk) sel.value = mk;
   updateViewSummary();
@@ -1389,6 +1393,7 @@ function recentCutoff() { return ymdAdd(todayYMD(), -(RECENT_DAYS - 1)); }
 function applyDefaultMonth() {
   const cutoff = recentCutoff();
   monthFilter = allDates.some(d => d >= cutoff) ? 'recent' : 'all';
+  pinRight = true;
   const sel = document.getElementById('monthFilterSelect');
   if (sel) sel.value = monthFilter;
   updateViewSummary();
@@ -2134,6 +2139,9 @@ function renderTable() {
   }
   document.getElementById('emptyState').style.display='none';
   document.getElementById('mainTable').style.display='';
+  // Decide before redrawing whether to land on the newest day afterwards.
+  const wrapEl=document.getElementById('tableWrap');
+  const stickRight=pinRight||(wrapEl&&(wrapEl.scrollWidth-wrapEl.clientWidth-wrapEl.scrollLeft)<40);
   const periodInfo=buildPeriods();
   const ptsLabel=ptsMode==='90days'?'Last 90 Days':ptsMode==='6months'?'Last 6 Months':'Annual Pts';
   const cutoff=recentCutoff();
@@ -2196,6 +2204,9 @@ function renderTable() {
   updateCABanner();
   updateSchedKey();
   syncStickyCols();
+  // Land on the newest day. Done twice: now, and again after layout settles (fonts,
+  // sticky-column widths) so later data arriving can't leave the grid mid-scroll.
+  if (stickRight&&wrapEl) { wrapEl.scrollLeft=wrapEl.scrollWidth; requestAnimationFrame(()=>{ wrapEl.scrollLeft=wrapEl.scrollWidth; }); }
 }
 // The first 4 columns are frozen. Each one's left edge has to equal the real width of the
 // columns before it, so measure them after every render (a long name plus its write-up
@@ -2209,6 +2220,11 @@ function syncStickyCols() {
 }
 window.addEventListener('resize', syncStickyCols);
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(syncStickyCols);
+// Scrolling away from the right edge releases the pin; scrolling back to it re-arms it.
+(function () {
+  const w = document.getElementById('tableWrap'); if (!w) return;
+  w.addEventListener('scroll', () => { pinRight = (w.scrollWidth - w.clientWidth - w.scrollLeft) < 40; }, { passive: true });
+})();
 function fmtDateLong(d) {
   try { const dt=new Date(d+'T00:00:00'); return (dt.getMonth()+1).toString().padStart(2,'0')+'/'+dt.getDate().toString().padStart(2,'0')+'/'+dt.getFullYear(); }
   catch(e) { return d; }
