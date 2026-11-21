@@ -601,9 +601,14 @@
     <div class="pf-stats" id="pfStats"></div>
     <div id="pfSched" style="display:none"></div>
     <div class="pf-rows" id="pfRows"></div>
-    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:18px">
-      <button class="btn primary" id="pfCABtn" onclick="profileOpenCA()" style="display:none">Open Corrective Action</button>
-      <button class="btn" onclick="closeProfile()">Close</button>
+    <div style="display:flex;justify-content:space-between;gap:8px;margin-top:18px">
+      <div style="display:flex;gap:8px" class="edit-only">
+        <button class="btn" id="pfHideBtn" onclick="profileToggleHide()" style="font-size:0.72rem">Hide Budtender</button>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn primary" id="pfCABtn" onclick="profileOpenCA()" style="display:none">Open Corrective Action</button>
+        <button class="btn" onclick="closeProfile()">Close</button>
+      </div>
     </div>
   </div>
 </div>
@@ -1985,14 +1990,18 @@ function toggleShowHidden() {
   updateViewSummary();
   renderTable();
 }
-function toggleHidePerson() {
-  if (!editingPerson || !requireEdit()) return;
-  const p=attendanceData[editingPerson]; if (!p) return;
-  const name=p.displayName||editingPerson;
+// Hide or unhide one budtender. Used by the cell editor (toggleHidePerson) and the
+// profile that opens when a name is clicked (profileToggleHide).
+function setPersonHidden(key, afterwards) {
+  if (!key || !requireEdit()) return;
+  const p=attendanceData[key]; if (!p) return;
+  const name=p.displayName||key;
   if (p.hidden) { pushUndo(); p.hidden=false; toast(name+' is now visible','success'); }
   else { if (!confirm('Hide '+name+' from the tracker?')) return; pushUndo(); p.hidden=true; toast(name+' hidden','success'); }
-  saveData(); renderTable(); closeEdit();
+  saveData(); renderTable(); if (afterwards) afterwards();
 }
+function toggleHidePerson() { setPersonHidden(editingPerson, closeEdit); }
+function profileToggleHide() { setPersonHidden(pfPerson, closeProfile); }
 function ptsColor(pts) {
   if (pts>=3) return 'pts-red';
   if (pts>=2) return 'pts-orange';
@@ -3332,6 +3341,7 @@ function openProfile(key) {
     row('Email', emp.email ? `<a href="mailto:${escHtml(emp.email)}">${escHtml(emp.email)}</a>` : miss) +
     row('Phone', emp.phone ? `<a href="tel:+${escHtml(String(emp.phone).replace(/\D/g,''))}">${escHtml(fmtPhone(emp.phone))}</a>` : miss);
   document.getElementById('pfCABtn').style.display = needs ? 'inline-flex' : 'none';
+  document.getElementById('pfHideBtn').textContent = p.hidden ? 'Unhide Budtender' : 'Hide Budtender';
   document.getElementById('profileModal').classList.add('active');
 }
 function closeProfile() { document.getElementById('profileModal').classList.remove('active'); pfPerson = null; }
