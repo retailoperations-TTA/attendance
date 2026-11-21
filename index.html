@@ -394,6 +394,8 @@
       </div>
       <button class="login-btn google" id="loginBtn" onclick="handleLogin()" style="margin-top:0">Sign In</button>
       <div class="error-msg" id="errorMsg">Invalid email or password. Please try again.</div>
+      <div style="text-align:center;margin-top:12px"><button type="button" id="resetBtn" onclick="handleReset()" style="background:none;border:none;color:var(--text-muted);font-size:0.75rem;text-decoration:underline;cursor:pointer;font-family:inherit">Forgot password, or need to set one?</button></div>
+      <div class="error-msg" id="resetMsg" style="display:none"></div>
       </div>
       <div id="noAccess" class="no-access" style="display:none">
         <p>You're signed in as <b id="noAccessWho"></b>, but no store has been opened up to you yet.</p>
@@ -813,6 +815,25 @@ async function handleLogin() {
     document.getElementById('passwordInput').focus();
     btn.disabled = false; btn.textContent = 'Sign In';
   }
+}
+// Emails a Firebase password-reset link. Also how a Google-only account gets a
+// password for the first time (the link adds email+password sign-in to it).
+async function handleReset() {
+  const email = document.getElementById('emailInput').value.trim();
+  const msg = document.getElementById('resetMsg'), btn = document.getElementById('resetBtn');
+  msg.style.display = 'block';
+  if (!email) { msg.textContent = 'Type your email above first, then click this again.'; return; }
+  btn.disabled = true;
+  try {
+    await auth.sendPasswordResetEmail(email);
+    msg.style.color = 'var(--text-muted)';
+    msg.textContent = 'Sent. Check ' + email + ' for a link to set your password (look in spam too).';
+  } catch (e) {
+    const code = (e && e.code) || '';
+    msg.textContent = code === 'auth/user-not-found' ? 'No account for ' + email + '. Ask an admin to add you.'
+      : code === 'auth/invalid-email' ? 'That does not look like an email address.'
+      : 'Could not send the email (' + (code || 'error') + ').';
+  } finally { btn.disabled = false; }
 }
 async function handleGoogle() {
   const err = document.getElementById('errorMsg');
