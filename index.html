@@ -1168,20 +1168,20 @@ function loadData() {
     lastSyncedData = JSON.parse(JSON.stringify(attendanceData));
     caDataLoaded = true;
     try { localStorage.setItem(lsKey('attendance'), JSON.stringify(attendanceData)); } catch(e) {}
-    rebuildDates(); renderTable();
-    if (initialLoad) {
-      initialLoad = false;
-      setTimeout(() => { const wrap = document.getElementById('tableWrap'); wrap.scrollLeft = wrap.scrollWidth; }, 50);
-    }
+    rebuildDates();
+    const firstLoad = initialLoad;
+    if (firstLoad) { initialLoad = false; applyDefaultMonth(); }
+    renderTable();
+    if (firstLoad) setTimeout(() => { const wrap = document.getElementById('tableWrap'); if (wrap) wrap.scrollLeft = wrap.scrollWidth; }, 50);
   }, err => {
     console.warn('Firebase error, using localStorage:', err.message);
     toast('Could not load ' + storeName(currentStoreId) + ' (' + err.message + ')', 'error');
     try { attendanceData = JSON.parse(localStorage.getItem(lsKey('attendance')) || '{}'); } catch(e) { attendanceData = {}; }
-    rebuildDates(); renderTable();
-    if (initialLoad) {
-      initialLoad = false;
-      setTimeout(() => { const wrap = document.getElementById('tableWrap'); wrap.scrollLeft = wrap.scrollWidth; }, 50);
-    }
+    rebuildDates();
+    const firstLoad = initialLoad;
+    if (firstLoad) { initialLoad = false; applyDefaultMonth(); }
+    renderTable();
+    if (firstLoad) setTimeout(() => { const wrap = document.getElementById('tableWrap'); if (wrap) wrap.scrollLeft = wrap.scrollWidth; }, 50);
   });
 }
 // Build a Firebase multi-path update holding only what changed between two
@@ -1344,6 +1344,16 @@ function setMonthFilter(mk) {
   if (sel && sel.value !== mk) sel.value = mk;
   updateViewSummary();
   renderTable();
+}
+// Each store opens on the current month instead of the whole year. "All Months" and
+// every earlier month stay one click away in the ☰ menu; the chip by the menu shows
+// which month is on screen. Falls back to the full grid if this month has no days yet.
+function applyDefaultMonth() {
+  const mk = todayYMD().substring(0, 7);
+  monthFilter = allDates.some(d => d.substring(0, 7) === mk) ? mk : 'all';
+  const sel = document.getElementById('monthFilterSelect');
+  if (sel) sel.value = monthFilter;
+  updateViewSummary();
 }
 document.addEventListener('click', e => {
   if (!e.target.closest('.header-dropdown') && !e.target.closest('#ptsColMenu')) {
