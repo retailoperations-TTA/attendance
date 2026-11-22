@@ -1385,10 +1385,11 @@ function setMonthFilter(mk) {
   updateViewSummary();
   renderTable();
 }
-// Each store opens on the last 30 days (the "recent" filter) instead of the whole year,
+// Each store opens on the last 90 days (the "recent" filter) instead of the whole year,
 // so the 1st of a month is never an empty grid. "All Months" and every specific month
 // stay one click away in the ☰ menu. Falls back to the full grid if nothing is recent.
-const RECENT_DAYS = 30;
+// The grid still lands on the newest day at the right edge; older days are a scroll left.
+const RECENT_DAYS = 90;
 function recentCutoff() { return ymdAdd(todayYMD(), -(RECENT_DAYS - 1)); }
 function applyDefaultMonth() {
   const cutoff = recentCutoff();
