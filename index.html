@@ -1337,7 +1337,9 @@ function resetViewFilters() {
 }
 function monthLabel(mk) {
   if (mk === 'recent') return 'Last ' + RECENT_DAYS + ' days';
-  if (mk === 'all') return 'All Months';
+  if (mk === 'all') return 'All of ' + CUR_YEAR();
+  if (mk === 'everything') return 'All Months (every year)';
+  if (filterYear(mk)) return 'All of ' + filterYear(mk);
   const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
   const [y,m] = mk.split('-');
   return monthNames[parseInt(m)-1] + ' ' + y;
@@ -1372,10 +1374,24 @@ function buildMonthFilterMenu() {
   const months = Array.from(monthSet).sort().reverse();
   const sel = document.getElementById('monthFilterSelect');
   if (!sel) return;
-  let html = `<option value="recent">${monthLabel('recent')}</option><option value="all">All Months</option>`;
-  months.forEach(mk => { html += `<option value="${mk}">${monthLabel(mk)}</option>`; });
+  const cy = CUR_YEAR();
+  const thisYear = months.filter(mk => mk.startsWith(cy + '-'));
+  const earlier = months.filter(mk => !mk.startsWith(cy + '-'));
+  let html = `<option value="recent">${monthLabel('recent')}</option><option value="all">${monthLabel('all')}</option>`;
+  thisYear.forEach(mk => { html += `<option value="${mk}">${monthLabel(mk)}</option>`; });
+  if (earlier.length) {
+    html += `<optgroup label="Earlier years">`;
+    html += `<option value="everything">${monthLabel('everything')}</option>`;
+    Array.from(new Set(earlier.map(mk => mk.substring(0, 4)))).forEach(y => {
+      html += `<option value="year:${y}">${monthLabel('year:' + y)}</option>`;
+    });
+    earlier.forEach(mk => { html += `<option value="${mk}">${monthLabel(mk)}</option>`; });
+    html += `</optgroup>`;
+  }
   sel.innerHTML = html;
-  sel.value = (monthFilter === 'recent' || months.includes(monthFilter)) ? monthFilter : 'all';
+  const known = ['recent', 'all', 'everything'].concat(months).concat(
+    Array.from(new Set(months.map(mk => 'year:' + mk.substring(0, 4)))));
+  sel.value = known.includes(monthFilter) ? monthFilter : 'all';
 }
 function setMonthFilter(mk) {
   monthFilter = mk;
@@ -1391,9 +1407,25 @@ function setMonthFilter(mk) {
 // The grid still lands on the newest day at the right edge; older days are a scroll left.
 const RECENT_DAYS = 90;
 function recentCutoff() { return ymdAdd(todayYMD(), -(RECENT_DAYS - 1)); }
+// Earlier calendar years are kept out of the day-to-day views: "All Months" means
+// this year. Nothing is deleted -- each earlier year is one pick away in the month
+// filter ("All of 2025" or a single month of it), and the CSV export still carries
+// every day on record. Filter keys: 'recent' | 'all' (this year) | 'everything'
+// (every year) | 'year:YYYY' | 'YYYY-MM'.
+function CUR_YEAR() { return String(new Date().getFullYear()); }
+function filterYear(mk) { return (mk || '').startsWith('year:') ? mk.slice(5) : null; }
+function dateInFilter(d, mk) {
+  if (mk === 'everything') return true;
+  if (mk === 'all') return d.startsWith(CUR_YEAR() + '-');
+  const fy = filterYear(mk);
+  if (fy) return d.startsWith(fy + '-');
+  if (mk === 'recent') return d >= recentCutoff();
+  return d.substring(0, 7) === mk;
+}
 function applyDefaultMonth() {
   const cutoff = recentCutoff();
-  monthFilter = allDates.some(d => d >= cutoff) ? 'recent' : 'all';
+  monthFilter = allDates.some(d => d >= cutoff) ? 'recent'
+    : (allDates.some(d => d.startsWith(CUR_YEAR() + '-')) ? 'all' : 'everything');
   pinRight = true;
   const sel = document.getElementById('monthFilterSelect');
   if (sel) sel.value = monthFilter;
@@ -2004,7 +2036,15 @@ function getWriteupPts(dates) {
   sortedEntries.forEach(([d,v]) => { if (d > lastWriteupDate) pts += getPoints(v); });
   return pts;
 }
-function getAnnualPts(dates) { let pts=0; Object.values(dates).forEach(v => { pts+=getPoints(v); }); return pts; }
+// Annual Pts covers the current calendar year only, the same window the 32
+// NYC-PS&STO hours reset on. Earlier years stay in the data and on the grid
+// under the month filter's "Earlier years" group; they no longer add in here.
+function getAnnualPts(dates) {
+  const yr = CUR_YEAR() + '-';
+  let pts = 0;
+  Object.entries(dates).forEach(([d, v]) => { if (d.startsWith(yr)) pts += getPoints(v); });
+  return pts;
+}
 function parseDate(dateStr) {
   if (!dateStr) return null;
   const s = dateStr.toString().trim();
@@ -2146,19 +2186,25 @@ function renderTable() {
   const periodInfo=buildPeriods();
   const ptsLabel=ptsMode==='90days'?'Last 90 Days':ptsMode==='6months'?'Last 6 Months':'Annual Pts';
   const cutoff=recentCutoff();
-  const filteredDates=monthFilter==='all'?allDates:monthFilter==='recent'?allDates.filter(d=>d>=cutoff):allDates.filter(d=>d.substring(0,7)===monthFilter);
+  const filteredDates=allDates.filter(d=>dateInFilter(d,monthFilter));
   let filteredPeriods=null;
   if (periodInfo) {
-    if (monthFilter==='all') { filteredPeriods=periodInfo.periods; }
-    else if (monthFilter==='recent') { filteredPeriods=periodInfo.periods.filter(p=>viewMode==='month'?p>=cutoff.substring(0,7):ymdAdd(p,6)>=cutoff); }
-    else if (viewMode==='month') { filteredPeriods=periodInfo.periods.filter(p=>p===monthFilter); }
-    else {
-      filteredPeriods=periodInfo.periods.filter(p=>{
-        const start=new Date(p+'T00:00:00');
-        for (let i=0;i<7;i++) { const day=new Date(start); day.setDate(start.getDate()+i); if (day.toISOString().substring(0,7)===monthFilter) return true; }
+    // Week periods are keyed by their start date, month periods by 'YYYY-MM'.
+    // A week that straddles a boundary shows under either side it touches.
+    const periodInFilter=p=>{
+      if (monthFilter==='everything') return true;
+      if (monthFilter==='recent') return viewMode==='month'?p>=cutoff.substring(0,7):ymdAdd(p,6)>=cutoff;
+      const fy=monthFilter==='all'?CUR_YEAR():filterYear(monthFilter);
+      if (fy) {
+        if (viewMode==='month') return p.startsWith(fy+'-');
+        for (let i=0;i<7;i++) { if (ymdAdd(p,i).startsWith(fy+'-')) return true; }
         return false;
-      });
-    }
+      }
+      if (viewMode==='month') return p===monthFilter;
+      for (let i=0;i<7;i++) { if (ymdAdd(p,i).substring(0,7)===monthFilter) return true; }
+      return false;
+    };
+    filteredPeriods=periodInfo.periods.filter(periodInFilter);
   }
   const headerCols=periodInfo
     ?filteredPeriods.map(p=>`<th class="period-col">${periodInfo.fmtFn(p)}</th>`).join('')

@@ -33,6 +33,12 @@ Open the store, then hamburger menu → Import. One drop zone takes:
 
 A weekly re-import never overwrites a write-up marker, an Excused, or logged sick time with a point. The point goes into the cell's note instead.
 
+## Years
+
+A store opens on the last 90 days. **All of <year>** in the month filter means the current calendar year, so days carried over from an earlier year stay out of the day-to-day grid. Nothing is deleted: earlier years sit under **Earlier years** in the same dropdown, as **All Months (every year)**, **All of 2025**, or a single month of it, and the CSV export still carries every day on record.
+
+**Annual Pts** counts the current calendar year only, the same window the 32 NYC-PS&STO hours reset on. Corrective actions are unaffected: those read points since the last write-up, or the last 6 months when there is no write-up.
+
 ## Moving the old trackers in
 
 Each old tracker's data comes in through **Admin → Bring in data from an old tracker**:
