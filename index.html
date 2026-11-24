@@ -617,11 +617,28 @@
     <div style="display:flex;justify-content:space-between;gap:8px;margin-top:18px">
       <div style="display:flex;gap:8px" class="edit-only">
         <button class="btn" id="pfHideBtn" onclick="profileToggleHide()" style="font-size:0.72rem">Hide Budtender</button>
+        <button class="btn" id="pfTransferBtn" onclick="openTransfer()" style="font-size:0.72rem">Transfer to Store</button>
       </div>
       <div style="display:flex;gap:8px">
         <button class="btn primary" id="pfCABtn" onclick="profileOpenCA()" style="display:none">Open Corrective Action</button>
         <button class="btn" onclick="closeProfile()">Close</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="transferModal" onclick="if(event.target===this)closeTransfer()">
+  <div class="modal" style="width:400px">
+    <h3 style="font-style:italic">Transfer Budtender</h3>
+    <p class="subtitle" id="trName"></p>
+    <div style="margin-bottom:14px">
+      <label style="display:block;font-size:0.72rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px">Move to</label>
+      <select id="trDest" style="width:100%;padding:10px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit;font-size:0.85rem;outline:none"></select>
+    </div>
+    <p style="font-size:0.78rem;color:var(--text-muted);line-height:1.5">Points, write-ups, notes, sick time, schedule, time off and employee info all move with them. They come off this store's tracker. To undo, transfer them back.</p>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeTransfer()">Cancel</button>
+      <button class="btn primary" id="trConfirmBtn" onclick="confirmTransfer()">Transfer</button>
     </div>
   </div>
 </div>
@@ -3473,12 +3490,98 @@ function openProfile(key) {
   document.getElementById('pfRows').innerHTML =
     row('Employee ID', id ? escHtml(id) : miss) +
     row('Email', emp.email ? `<a href="mailto:${escHtml(emp.email)}">${escHtml(emp.email)}</a>` : miss) +
-    row('Phone', emp.phone ? `<a href="tel:+${escHtml(String(emp.phone).replace(/\D/g,''))}">${escHtml(fmtPhone(emp.phone))}</a>` : miss);
+    row('Phone', emp.phone ? `<a href="tel:+${escHtml(String(emp.phone).replace(/\D/g,''))}">${escHtml(fmtPhone(emp.phone))}</a>` : miss) +
+    (p.transfers ? row('Transfers', Object.values(p.transfers).sort((a, b) => a.at - b.at)
+      .map(t => escHtml(storeName(t.from) + ' → ' + storeName(t.to) + ' on ' + fmtUS(toLocalYMD(new Date(t.at))))).join('<br>')) : '');
   document.getElementById('pfCABtn').style.display = needs ? 'inline-flex' : 'none';
+  document.getElementById('pfTransferBtn').style.display = transferDests().length ? '' : 'none';
   document.getElementById('pfHideBtn').textContent = p.hidden ? 'Unhide Budtender' : 'Hide Budtender';
   document.getElementById('profileModal').classList.add('active');
 }
 function closeProfile() { document.getElementById('profileModal').classList.remove('active'); pfPerson = null; }
+
+// ── Transfer a budtender to another store ──
+// Moves the row and everything filed under it (schedule, time off, cell history,
+// employee info) from stores/{src} to stores/{dst} in one atomic update.
+let trPerson = null;
+function transferDests() { return STORES.filter(s => s.id !== currentStoreId && canEdit(s.id)); }
+function openTransfer() {
+  const k = pfPerson;
+  if (!k || !attendanceData[k] || !requireEdit()) return;
+  const dests = transferDests();
+  if (!dests.length) { toast('You need edit access to another store to transfer someone', 'error'); return; }
+  trPerson = k;
+  document.getElementById('trName').textContent = (attendanceData[k].displayName || k) + ', currently at ' + storeName(currentStoreId);
+  document.getElementById('trDest').innerHTML = dests.map(s => `<option value="${escHtml(s.id)}">${escHtml(s.name)}</option>`).join('');
+  document.getElementById('trConfirmBtn').disabled = false;
+  closeProfile();
+  document.getElementById('transferModal').classList.add('active');
+}
+function closeTransfer() { document.getElementById('transferModal').classList.remove('active'); trPerson = null; }
+async function confirmTransfer() {
+  const src = currentStoreId, dst = document.getElementById('trDest').value, k = trPerson;
+  if (!k || !attendanceData[k] || !dst || dst === src) return;
+  if (!canEdit(src) || !canEdit(dst)) { toast('You need edit access to both ' + storeName(src) + ' and ' + storeName(dst), 'error'); return; }
+  const p = JSON.parse(JSON.stringify(attendanceData[k])), name = p.displayName || k;
+  if (!confirm('Transfer ' + name + ' from ' + storeName(src) + ' to ' + storeName(dst) + '?')) return;
+  const btn = document.getElementById('trConfirmBtn'); btn.disabled = true;
+  const S = 'stores/' + src + '/', D = 'stores/' + dst + '/', hk = histSafeKey(k);
+  const nm = splitName(p.displayName || k), ek = nm.fn && nm.ln ? empKey(nm.fn, nm.ln) : '';
+  const up = {};
+  try {
+    const read = path => storeNode(dst, path).once('value').then(s => s.val());
+    const [dRow, dShifts, dPunches, dSchedName, dToDays, dToName, dHist, dEmp] = await Promise.all([
+      read('attendance/' + k), read('schedule/shifts/' + k), read('schedule/punches/' + k), read('schedule/names/' + k),
+      read('timeoff/days/' + k), read('timeoff/names/' + k), read('cellHistory/' + hk), ek ? read('employees/' + ek) : null]);
+    // Already a row with this key at the destination: fold in the same way Merge does (that row wins on the same day)
+    let row = p;
+    if (dRow) {
+      row = dRow;
+      ['dates', 'notes', 'userNotes', 'usl', 'priorWriteups', 'transfers'].forEach(f => {
+        if (!p[f]) return; row[f] = row[f] || {};
+        Object.entries(p[f]).forEach(([d, v]) => {
+          if (row[f][d] == null || row[f][d] === '') row[f][d] = v;
+          else if (f === 'notes' && v && row[f][d] !== v) row[f][d] = row[f][d] + ' | ' + v;
+        });
+      });
+      if (p.management) row.management = true;
+    }
+    row.transfers = row.transfers || {};
+    row.transfers[DB.ref().push().key] = { from: src, to: dst, at: Date.now(), by: currentUserEmail || '' };
+    up[D + 'attendance/' + k] = row; up[S + 'attendance/' + k] = null;
+    const sd = schedData || {}, td = timeOffData || {};
+    if ((sd.shifts || {})[k]) { up[D + 'schedule/shifts/' + k] = Object.assign({}, dShifts || {}, sd.shifts[k]); up[S + 'schedule/shifts/' + k] = null; }
+    if ((sd.punches || {})[k]) { up[D + 'schedule/punches/' + k] = Object.assign({}, dPunches || {}, sd.punches[k]); up[S + 'schedule/punches/' + k] = null; }
+    if ((sd.names || {})[k]) { if (dSchedName == null) up[D + 'schedule/names/' + k] = sd.names[k]; up[S + 'schedule/names/' + k] = null; }
+    if ((td.days || {})[k]) { up[D + 'timeoff/days/' + k] = Object.assign({}, dToDays || {}, td.days[k]); up[S + 'timeoff/days/' + k] = null; }
+    if ((td.names || {})[k]) { if (dToName == null) up[D + 'timeoff/names/' + k] = td.names[k]; up[S + 'timeoff/names/' + k] = null; }
+    const h = (cellHistory || {})[hk];
+    if (h) {
+      const merged = Object.assign({}, dHist || {});
+      Object.entries(h).forEach(([dk, ents]) => { merged[dk] = Object.assign({}, merged[dk] || {}, ents); });
+      up[D + 'cellHistory/' + hk] = merged; up[S + 'cellHistory/' + hk] = null;
+    }
+    if (ek && employees[ek]) {
+      // Keep anything already on file at the new store; fill the gaps from this one
+      const e = Object.assign({}, employees[ek]);
+      Object.entries(dEmp || {}).forEach(([f, v]) => { if (v !== '' && v != null) e[f] = v; });
+      up[D + 'employees/' + ek] = e; up[S + 'employees/' + ek] = null;
+    }
+    if (caAlertsSent[k] !== undefined) up[S + 'caAlertsSent/' + k] = null;
+    await DB.ref().update(up);
+  } catch (err) {
+    btn.disabled = false;
+    toast('Transfer failed, nothing was moved: ' + err.message, 'error');
+    return;
+  }
+  // The row is gone from this store: drop it locally and from undo snapshots so Undo can't bring it back here
+  delete attendanceData[k];
+  if (lastSyncedData) delete lastSyncedData[k];
+  undoStack.forEach(s => { delete s[k]; });
+  updateUndoBtn();
+  closeTransfer(); rebuildDates(); renderTable();
+  toast(name + ' transferred to ' + storeName(dst), 'success');
+}
 function profileOpenCA() { const k = pfPerson; closeProfile(); if (k) openCA(k); }
 function closeCA() { document.getElementById('caModal').classList.remove('active'); caPerson = null; }
 function caFileBase() { const d = caFormData(); return `${d.last}, ${d.first[0] || ''}. ${CA_STAGES[d.stage].label} - Attendance`; }
@@ -3655,7 +3758,7 @@ function admMerge(src, dst) {
   const a = attendanceData[src], b = attendanceData[dst], an = a.displayName || src, bn = b.displayName || dst;
   if (!confirm('Merge "' + an + '" into "' + bn + '"?\n\nEvery entry moves onto ' + bn + ' (that row wins where both have the same day) and the "' + an + '" row is deleted. Undo puts it back.')) return;
   pushUndo();
-  ['dates', 'notes', 'userNotes', 'usl', 'priorWriteups'].forEach(f => {
+  ['dates', 'notes', 'userNotes', 'usl', 'priorWriteups', 'transfers'].forEach(f => {
     if (!a[f]) return; b[f] = b[f] || {};
     Object.entries(a[f]).forEach(([d, v]) => {
       if (b[f][d] == null || b[f][d] === '') b[f][d] = v;
