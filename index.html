@@ -168,7 +168,7 @@
   tbody td:nth-child(2){left:var(--sl2,150px);min-width:140px}
   tbody td:nth-child(3){left:var(--sl3,290px);min-width:110px;text-align:center;font-weight:600}
   tbody td:nth-child(4){left:var(--sl4,400px);min-width:95px;text-align:center;font-weight:600;border-right:1px solid rgba(108,140,255,0.25)}
-  tbody td.date-cell{text-align:center;cursor:pointer;min-width:55px;transition:background 0.1s;font-weight:600;font-size:0.78rem;position:relative}
+  tbody td.date-cell{text-align:center;cursor:pointer;user-select:none;-webkit-user-select:none;min-width:55px;transition:background 0.1s;font-weight:600;font-size:0.78rem;position:relative}
   tbody td.date-cell:hover{background:var(--surface2)}
   tbody td.period-cell{text-align:center;cursor:default;min-width:80px;transition:background 0.1s;font-weight:600;font-size:0.8rem}
   thead th.date-col{text-align:center;min-width:55px;line-height:1.35}
@@ -2255,7 +2255,7 @@ function renderTable() {
         const histCls=isEditedAfterImport(key,d)?' has-hist':'';
         const vs=String(v).trim();
         const schCls=tod?' to-'+tod.k:!sc?'':' sched-on'+(getPoints(v)>=1?' sched-one':getPoints(v)>0?' sched-half':/^excused$/i.test(vs)?' sched-exc':parseSickMinutes(v)!==null?' sched-sick':'');
-        return `<td class="date-cell${histCls}${schCls}" onclick="openEdit('${key.replace(/'/g,"\\'")}','${d}')"${titleAttr}>${tod&&tod.k==='sick'?'<span class="to-emoji">&#129298;</span>':''}${cellHtml(v)}${sc?sc.html:''}${starHtml}</td>`;
+        return `<td class="date-cell${histCls}${schCls}" ondblclick="openEdit('${key.replace(/'/g,"\\'")}','${d}')"${titleAttr}>${tod&&tod.k==='sick'?'<span class="to-emoji">&#129298;</span>':''}${cellHtml(v)}${sc?sc.html:''}${starHtml}</td>`;
       }).join('');
     }
     const sickRemaining=getSickHoursRemaining(dates,person);
@@ -3415,7 +3415,7 @@ function renderSchedPreview() {
   } else {
     html += '<div class="sp-file">&#9675; Schedule export (scheduled days) not added</div>';
   }
-  if (ps.punches) html += `<div class="sp-file ok">&#10003; Timesheets: ${ps.punches.count} clock-ins, ${rng(ps.punches)} (exact in/out times when you click a day)</div>`;
+  if (ps.punches) html += `<div class="sp-file ok">&#10003; Timesheets: ${ps.punches.count} clock-ins, ${rng(ps.punches)} (exact in/out times when you double-click a day)</div>`;
   if (!ps.shifts && !Object.keys(schedData.shifts || {}).length) html += '<div class="sp-hint">Add the Schedule export too. Timesheets alone can\u2019t show which days were scheduled.</div>';
   el.innerHTML = html;
   el.style.display = 'block';
